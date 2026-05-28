@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<!-- saved from url=(0026)https://oblosmoke.it/test/ -->
+<html lang="en" style="--svh: 12.790000000000001px;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>LUDOVICO MORANDO — SYSTEM v2.4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link href="./LUDOVICO MORANDO — SYSTEM v2.5_files/css2" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --bg:         #000000;
+  --fg:         #e8e8e8;
+  --accent:     #00ff88;
+  --red:        #ff004c;
+  /* MODIFICA 3 — colori più chiari per miglior contrasto */
+  --dim:        #666666;   /* era #3a3a3a → ora leggibile su nero */
+  --mid:        #999999;   /* era #777777 → +1 step di luminosità */
+  --border:     #2a2a2a;   /* era #1e1e1e → leggermente più visibile */
+  --win-bg:     #080808;
+  --win-bd:     #2c2c2c;
+  --font:       'JetBrains Mono', monospace;
+  --bar-top:    32px;
+  --bar-bot:    48px;
+  --left-w:     300px;
+  --right-w:    330px;
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; overscroll-behavior: none; touch-action: manipulation; }
+body {
+  height: 100%; min-height: 100svh;
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 15px; line-height: 1.7;
+  overflow: hidden; overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================================
+   CUSTOM CURSOR
+   ============================================================
+#cursor {
+  position: fixed; width: 12px; height: 12px;
+  background: var(--accent); pointer-events: none; z-index: 99999;
+  mix-blend-mode: difference; transform: translate(-50%,-50%);
+  transition: transform .1s ease, width .15s, height .15s; display: none;
+}
+#cursor.click { transform: translate(-50%,-50%) scale(.55); }
+#cursor.onwin { width: 18px; height: 18px; background: var(--red); }
+#cursor.dragging-icon { width: 10px; height: 10px; background: var(--accent); opacity: .6; }
+*/
+
+/* ============================================================
+   CRT
+   ============================================================ */
+#crt {
+  display: none;
+  position: fixed; inset: 0; pointer-events: none; z-index: 9000;
+  background: repeating-linear-gradient(
+    0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px
+  );
+  animation: flicker 10s infinite;
+}
+#crt::after {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.5) 100%);
+}
+@keyframes flicker {
+  0%,100%{opacity:1} 91%{opacity:1} 92%{opacity:.88} 93%{opacity:1} 97%{opacity:.94}
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+#toast {
+  position: fixed; bottom: calc(var(--bar-bot) + 12px); left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: #0d0d0d; border: 1px solid var(--accent);
+  padding: 8px 20px; font-size: 12px; letter-spacing: .1em; color: var(--accent);
+  z-index: 8999; opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; white-space: nowrap; max-width: 90vw;
+  overflow: hidden; text-overflow: ellipsis;
+}
+#toast.show { opacity:1; transform: translateX(-50%) translateY(0); }
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+#boot {
+  position: fixed; inset: 0; z-index: 8000; background: var(--bg);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: clamp(28px,8vw,80px); transition: opacity .8s ease;
+}
+#boot.out { opacity: 0; pointer-events: none; }
+.boot-hdr {
+  font-size: clamp(13px,2.8vw,17px); color: var(--accent);
+  letter-spacing: .12em; margin-bottom: 32px;
+  text-shadow: 0 0 20px rgba(0,255,136,.6); position: relative;
+}
+.boot-log { font-size: clamp(12px,2.2vw,14px); color: var(--mid); line-height: 2.2; max-width: min(540px,90vw); }
+.boot-log .ln { display: block; opacity: 0; }
+.boot-log .ln.vis { opacity: 1; }
+.boot-log .ok   { color: var(--accent); }
+.boot-log .warn { color: #ffaa00; }
+.boot-prog { margin-top: 32px; width: clamp(200px,50vw,320px); }
+.prog-track { height: 2px; background: var(--border); }
+.prog-fill  { height: 100%; background: var(--accent); width: 0%;
+              box-shadow: 0 0 8px rgba(0,255,136,.5); transition: width .08s linear; }
+.prog-pct   { color: var(--accent); font-size: 12px; margin-top: 10px; letter-spacing: .12em; }
+
+/* ============================================================
+   STATUSBAR
+   ============================================================ */
+#statusbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--bar-top);
+  background: #080808; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 10px;
+  z-index: 600; font-size: 12px; letter-spacing: .06em; overflow: hidden;
+    touch-action: manipulation;
+}
+.sb-name   { color: var(--accent); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.sb-sep    { color: var(--dim); flex-shrink: 0; }
+.sb-role   { color: var(--mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.sb-status { color: var(--accent); white-space: nowrap; flex-shrink: 0; }
+#sb-clock  { color: var(--mid); font-size: 11px; white-space: nowrap; flex-shrink: 0; margin-left: auto; display: none; }
+@media (min-width: 600px) { #statusbar { gap: 16px; padding: 0 18px; } }
+@media (min-width: 768px) { #sb-clock { display: block; } }
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+#main { position: fixed; inset: 0; opacity: 0; pointer-events: none; transition: opacity .9s ease; }
+#main.on { opacity: 1; pointer-events: all; }
+
+/* ============================================================
+   DESKTOP
+   ============================================================ */
+#desktop {
+  position: absolute;
+  top: var(--bar-top); left: 0; right: 0; bottom: var(--bar-bot);
+  overflow: hidden;
+}
+#desktop::before {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size: 40px 40px; opacity: .18; pointer-events: none;
+}
+
+/* ============================================================
+   LEFT PANEL
+   MODIFICA 3 — font +1.5px, colori schiariti
+   ============================================================ */
+#left-panel { display: none; }
+@media (min-width: 768px) {
+  #left-panel {
+    display: flex; flex-direction: column;
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: var(--left-w);
+    border-right: 1px solid var(--border);
+    background: rgba(5,5,5,.98);
+    z-index: 3; overflow-y: auto; overflow-x: hidden;
+    padding: 18px 14px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  #left-panel::-webkit-scrollbar { width: 3px; }
+  #left-panel::-webkit-scrollbar-thumb { background: var(--border); }
+}
+
+.lp-label {
+  /* MODIFICA 3: era 10px → 11.5px; era var(--dim) → più visibile */
+  font-size: 11.5px; color: #888888;
+  letter-spacing: .16em; padding: 4px 0;
+  margin-bottom: 6px; border-bottom: 1px solid var(--border);
+  margin-top: 22px; flex-shrink: 0;
+}
+.lp-label:first-child { margin-top: 0; }
+
+.lp-file {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 8px; border: 1px solid transparent;
+  cursor: pointer; user-select: none;
+  /* MODIFICA 3: era 13px → 14px; era var(--mid) → #aaa */
+  font-size: 14px; color: #aaaaaa; letter-spacing: .04em;
+  transition: background .12s, border-color .12s, color .12s;
+  flex-shrink: 0;
+}
+.lp-file:hover, .lp-file.sel {
+  background: rgba(0,255,136,.05);
+  border-color: rgba(0,255,136,.35);
+  color: var(--fg);
+}
+.lp-file:active { background: rgba(0,255,136,.1); }
+.lp-bracket { color: var(--dim); transition: color .12s; flex-shrink: 0; }
+.lp-file:hover .lp-bracket { color: var(--accent); }
+.lp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-ext  { color: var(--accent); font-size: 11px; opacity: .8; flex-shrink: 0; }
+
+.lp-cmds {
+  margin-top: 10px; flex-shrink: 0;
+  /* MODIFICA 3: era 11.5px → 13px */
+  font-size: 13px; color: #888; line-height: 2.0;
+}
+.lp-cmds .lp-sep {
+  display: block; color: var(--dim);
+  border-bottom: 1px solid var(--border);
+  margin: 5px 0; font-size: 10px;
+}
+.lp-cmds .lp-row {
+  display: flex; gap: 8px; align-items: baseline; padding: 1px 0;
+}
+.lp-cmds .lp-cmd {
+  /* MODIFICA 3: era var(--fg) → bianco puro per contrasto */
+  color: #dddddd; min-width: 72px; flex-shrink: 0;
+  cursor: pointer; transition: color .12s;
+}
+.lp-cmds .lp-cmd:hover { color: var(--accent); }
+.lp-cmds .lp-desc {
+  /* MODIFICA 3: era var(--dim) → più leggibile */
+  color: #888888; font-size: 12px;
+}
+.lp-cmds .lp-footer {
+  display: block; margin-top: 8px;
+  /* MODIFICA 3: era 10px → 11px */
+  font-size: 11px; color: #777; line-height: 1.7;
+}
+
+/* ============================================================
+   DESKTOP CONTENT (center)
+   ============================================================ */
+#desktop-content {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; align-items: center;
+  overflow: hidden;
+}
+@media (min-width: 768px) { #desktop-content { left: var(--left-w); } }
+@media (min-width: 1100px) { #desktop-content { right: var(--right-w); } }
+
+/* ============================================================
+   LUDOVICO ASCII HEADER
+   ============================================================ */
+#ludo-ascii {
+  position: relative; z-index: 2;
+  margin-top: clamp(18px, 3.5vh, 40px);
+  white-space: pre; line-height: 1.18; letter-spacing: 0;
+  font-size: clamp(4.5px, 0.9vw, 10.5px);
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(0,255,136,.28));
+  user-select: none; pointer-events: none;
+  max-width: 100%; overflow: hidden;
+}
+#ludo-ascii .al {
+  display: block; opacity: 0; transform: translateY(4px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+#ludo-ascii .al.vis { opacity: 1; transform: translateY(0); }
+@keyframes ascii-breathe {
+  0%,100% { filter: drop-shadow(0 0 5px rgba(0,255,136,.22)); }
+  50%      { filter: drop-shadow(0 0 14px rgba(0,255,136,.42)); }
+}
+#ludo-ascii.breathing { animation: ascii-breathe 4s ease-in-out infinite; }
+#ludo-ascii::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,255,136,.5) 50%, transparent 100%);
+  top: -2px; animation: ascii-scan 6s linear infinite; pointer-events: none;
+}
+@keyframes ascii-scan {
+  0%   { top: -2px; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ============================================================
+   ICON CANVAS
+   ============================================================ */
+#icon-canvas {
+  flex: 1; width: 100%;
+  display: flex; flex-wrap: wrap;
+  justify-content: center; align-content: flex-start;
+  gap: clamp(12px,2vw,28px) clamp(16px,2.5vw,36px);
+  padding: clamp(14px,2.5vh,28px) clamp(16px,4vw,40px) 20px;
+  position: relative;
+}
+@media (min-width: 768px) {
+  #icon-canvas { display: block; padding: 0; }
+}
+
+/* ── DESK ICON ── */
+.desk-icon {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 10px 8px;
+  cursor: pointer; user-select: none;
+  border: 1px solid transparent;
+  min-width: 90px; max-width: 110px; text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0; transform: translateY(6px);
+  /* only visual transitions; left/top are set directly for drag performance */
+  transition: opacity .3s ease, transform .3s ease,
+              border-color .15s, background .15s, box-shadow .15s;
+}
+@media (min-width: 768px) {
+  .desk-icon { position: absolute; }
+}
+.desk-icon.vis { opacity: 1; transform: translateY(0); }
+.desk-icon:hover, .desk-icon.sel {
+  border-color: rgba(0,255,136,.35);
+  background: rgba(0,255,136,.04);
+}
+.desk-icon:active { background: rgba(0,255,136,.09); }
+
+/* dragging state */
+.desk-icon.icon-dragging {
+  opacity: .72;
+  border-color: rgba(0,255,136,.6);
+  background: rgba(0,255,136,.06);
+  box-shadow: 0 0 0 1px rgba(0,255,136,.25), 0 8px 32px rgba(0,0,0,.7);
+  z-index: 500 !important;
+  cursor: grabbing;
+  /* disable transition during active drag so it feels instant */
+  transition: border-color .1s, background .1s, box-shadow .1s, opacity .1s;
+}
+/* snap-back animation */
+.desk-icon.snapping {
+  transition: left .22s cubic-bezier(.25,.8,.25,1),
+              top  .22s cubic-bezier(.25,.8,.25,1),
+              opacity .3s, border-color .15s, background .15s;
+}
+
+.di-folder {
+  font-size: clamp(8px, 1.3vw, 11px); line-height: 1.25;
+  white-space: pre; letter-spacing: 0;
+  color: var(--accent); opacity: .75;
+  transition: opacity .15s, color .15s; display: block;
+}
+.desk-icon:hover .di-folder,
+.desk-icon.sel   .di-folder { opacity: 1; }
+.di-name {
+  font-size: clamp(9px, 1.1vw, 11px); color: var(--mid);
+  letter-spacing: .04em; line-height: 1.3; word-break: break-all;
+  transition: color .15s;
+}
+.desk-icon:hover .di-name,
+.desk-icon.sel   .di-name { color: var(--fg); }
+.di-ext { color: var(--accent); opacity: .7; }
+.desk-icon.trash-icon .di-folder { color: #9a9a9a; opacity: .78; }
+.desk-icon.trash-icon:hover .di-folder,
+.desk-icon.trash-icon.sel .di-folder { color: var(--fg); opacity: 1; }
+.desk-icon.trash-icon .di-ext { color: #9a9a9a; }
+
+#mob-hint {
+  width: 100%; text-align: center;
+  margin-top: 14px; font-size: 12px; color: var(--mid);
+  display: none; line-height: 2;
+}
+
+/* ============================================================
+   RIGHT INFO PANEL
+   MODIFICA 3 — font +1-2px, colori schiariti
+   ============================================================ */
+#info-panel { display: none; }
+@media (min-width: 1100px) {
+  #info-panel {
+    display: flex; flex-direction: column;
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: var(--right-w); border-left: 1px solid var(--border);
+    background: rgba(6,6,6,.97);
+    /* MODIFICA 3: era 12px → 13px */
+    padding: 20px 18px; font-size: 13px; color: #999;
+    overflow-y: auto; gap: 0; z-index: 3;
+  }
+  .ip-section { margin-bottom: 20px; }
+  .ip-title  {
+    /* MODIFICA 3: era 12px → 13px */
+    color: var(--fg); font-size: 13px; letter-spacing: .12em; margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .ip-row    { display: flex; justify-content: space-between; align-items: flex-start;
+               padding: 6px 0; border-bottom: 1px solid #1a1a1a; gap: 10px; }
+  .ip-key    { color: var(--accent); flex-shrink: 0; font-size: 12px; letter-spacing: .1em; }
+  .ip-val    {
+    /* MODIFICA 3: era 12px → 13px */
+    color: var(--fg); text-align: right; font-size: 13px;
+  }
+  .ip-hint   {
+    /* MODIFICA 3: era 11px → 12px; era var(--dim) → #888 */
+    margin-top: 18px; font-size: 12px; color: #888; line-height: 1.9;
+  }
+  .ip-tag    {
+    display: inline-block; border: 1px solid var(--border);
+    padding: 2px 7px;
+    /* MODIFICA 3: era 10px → 11px; era var(--mid) → #999 */
+    font-size: 11px; color: #999;
+    margin: 2px 2px 0 0; letter-spacing: .08em;
+  }
+}
+
+/* ============================================================
+   WINDOW LAYER
+   ============================================================ */
+#wlayer { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+#wlayer > * { pointer-events: all; }
+
+/* ============================================================
+   WINDOW
+   ============================================================ */
+.win {
+  position: absolute; display: flex; flex-direction: column;
+  background: var(--win-bg); border: 1px solid var(--win-bd);
+  box-shadow: 0 0 0 1px #000, 0 8px 48px rgba(0,0,0,.85);
+  animation: winIn .2s ease forwards;
+  will-change: transform; min-width: 0; max-width: 100%;
+}
+@keyframes winIn {
+  from { opacity:0; transform:scale(.96) translateY(5px); }
+  to   { opacity:1; transform:scale(1)   translateY(0); }
+}
+.win.closing { animation: winOut .18s ease forwards !important; }
+@keyframes winOut { to { opacity:0; transform:scale(.93) translateY(8px); filter:blur(1px); } }
+.win.focused {
+  box-shadow: 0 0 0 1px var(--accent), 0 12px 64px rgba(0,0,0,.9),
+              inset 0 1px 0 rgba(0,255,136,.03);
+}
+.win::before {
+  content: '┌─ ' attr(data-id) ' ─';
+  position: absolute; top: -1px; left: -1px;
+  font-size: 9px; color: var(--dim); background: var(--bg);
+  padding: 0 4px; pointer-events: none; white-space: nowrap; letter-spacing: 0;
+}
+@media (max-width: 767px) {
+  .win {
+    position: fixed !important; top: var(--bar-top) !important;
+    left: 0 !important; right: 0 !important; bottom: var(--bar-bot) !important;
+    width: 100% !important; height: auto !important;
+    border-left: none; border-right: none;
+    animation: winMob .25s ease forwards;
+  }
+  @keyframes winMob {
+    from { opacity:0; transform:translateY(24px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .win::before { display: none; }
+  .win.focused { box-shadow: 0 0 0 1px var(--accent); }
+}
+.win-bar {
+  display: flex; align-items: center; padding: 0 12px;
+  height: 36px; min-height: 36px; background: #111;
+  border-bottom: 1px solid var(--border);
+  cursor: move; user-select: none; flex-shrink: 0; gap: 10px; touch-action: none;
+}
+@media (max-width: 767px) { .win-bar { cursor: default; height: 48px; min-height: 48px; } }
+.win-title { font-size: 12px; color: var(--mid); letter-spacing: .08em; flex: 1;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.win-title span { color: var(--fg); }
+.wbtns { display: flex; gap: 6px; flex-shrink: 0; }
+.wb {
+  width: 13px; height: 13px; border: 1px solid var(--dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: transparent; cursor: pointer; transition: all .12s; flex-shrink: 0;
+}
+.wb.close { border-color: #882222; }
+.wb.close:hover,.wb.close:active { background: var(--red); color:#000; border-color: var(--red); }
+.wb.mini  { border-color: #886600; }
+.wb.mini:hover,.wb.mini:active  { background: #ffaa00; color:#000; }
+.wb.maxi  { border-color: #116633; }
+.wb.maxi:hover,.wb.maxi:active  { background: var(--accent); color:#000; }
+@media (max-width: 767px) {
+  .wb { width: 30px; height: 30px; font-size: 15px; }
+  .wb.mini,.wb.maxi { display: none; }
+}
+.win-body {
+  flex: 1; overflow-y: auto; padding: clamp(18px,4vw,26px);
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
+.win-body::-webkit-scrollbar { width: 3px; }
+.win-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ============================================================
+   TERMINAL BAR
+   ============================================================ */
+#termbar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: var(--bar-bot);
+  background: #060606; border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; z-index: 600; gap: 10px;
+}
+#term-prompt { color: var(--accent); font-size: clamp(12px,2.5vw,14px);
+               white-space: nowrap; flex-shrink: 0; letter-spacing: .04em; }
+#term-input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--fg); font-family: var(--font);
+  font-size: clamp(13px,3vw,15px); caret-color: var(--accent);
+  letter-spacing: .04em; min-width: 0;
+}
+#term-input::placeholder { color: var(--dim); font-size: 12px; }
+#term-copyright {
+  color: var(--dim); font-size: 10px; letter-spacing: .06em;
+  white-space: nowrap; flex-shrink: 0; display: none; opacity: .6;
+}
+@media (min-width: 600px) { #term-copyright { display: block; } }
+
+/* ============================================================
+   WINDOW CONTENT STYLES
+   ============================================================ */
+.ph { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 18px; }
+.ph-name { font-size: clamp(17px,4.5vw,22px); color: var(--fg); letter-spacing: .04em; margin-bottom: 5px; }
+.ph-type { color: var(--accent); font-size: 11px; letter-spacing: .22em; }
+.pmeta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; font-size: 13px; }
+.pm { display: flex; flex-direction: column; gap: 3px; }
+.pk { color: var(--dim); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+.pv { color: var(--fg); font-size: 13px; }
+.pdesc { color: var(--mid); font-size: clamp(14px,2.6vw,16px); line-height: 2.05; margin-bottom: 18px; }
+.pdesc strong { color: var(--fg); font-weight: 400; }
+.ptags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.ptag  { border: 1px solid var(--border); padding: 3px 10px; font-size: 11px; color: var(--mid); letter-spacing: .1em; }
+.ascii-prev { font-size: clamp(9px,1.6vw,10px); line-height: 1.35; color: var(--accent);
+              white-space: pre; margin: 16px 0; opacity: .65; overflow-x: auto; letter-spacing: 0; }
+.project-gallery {
+  position: relative; margin: 16px 0 18px; border: 1px solid var(--border);
+  background: #030303; overflow: hidden;
+}
+.gallery-viewport {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+.gallery-track {
+  display: flex; height: 100%; transform: translateX(calc(var(--gal-index,0) * -100%));
+  transition: transform .35s ease;
+}
+.gallery-slide { min-width: 100%; height: 100%; background: #0a0a0a; }
+.gallery-slide img {
+  width: 100%; height: 100%; display: block; object-fit: contain;
+  background: #0a0a0a; filter: none !important;
+}
+.gallery-note { color: var(--dim); font-size: 10px; letter-spacing: .08em; }
+.gallery-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border: 1px solid rgba(0,255,136,.45);
+  background: rgba(0,0,0,.62); color: var(--accent); font: 700 18px/1 var(--font);
+  cursor: pointer; z-index: 2; display: grid; place-items: center;
+  touch-action: manipulation;
+}
+.gallery-btn:hover { background: rgba(0,255,136,.12); }
+.gallery-btn.prev { left: 10px; }
+.gallery-btn.next { right: 10px; }
+.gallery-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 10px; color: var(--mid); font-size: 11px; letter-spacing: .12em;
+}
+.gallery-count { color: var(--accent); white-space: nowrap; }
+.gallery-dots { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.gallery-dot {
+  width: 7px; height: 7px; border: 1px solid var(--accent); background: transparent;
+  opacity: .5; cursor: pointer; padding: 0;
+}
+.gallery-dot.on { background: var(--accent); opacity: 1; box-shadow: 0 0 8px rgba(0,255,136,.45); }
+@media (max-width: 599px) {
+  .gallery-viewport { aspect-ratio: 4 / 3; }
+  .gallery-btn { width: 30px; height: 30px; }
+}
+.cres { font-size: clamp(13px,2.8vw,15px); line-height: 2.2; color: var(--mid); padding: 2px 0; }
+.cres .a { color: var(--accent); }
+.cres .f { color: var(--fg); }
+.cres .r { color: var(--red); }
+.cres .d { color: var(--dim); }
+.cres .w { color: #ffaa00; }
+.skill-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px solid #111; }
+.skill-name { color: var(--fg); font-size: 13px; width: 160px; flex-shrink: 0; }
+.skill-bar  { flex: 1; height: 3px; background: var(--border); position: relative; }
+.skill-fill { height: 100%; background: var(--accent); box-shadow: 0 0 6px rgba(0,255,136,.4); }
+.skill-pct  { color: var(--accent); font-size: 11px; width: 36px; text-align: right; flex-shrink: 0; }
+.c-link { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #111; font-size: 13px; }
+.c-label { color: var(--dim); font-size: 11px; letter-spacing: .12em; width: 80px; flex-shrink: 0; }
+.c-val   { color: var(--fg); }
+.c-val a { color: var(--accent); text-decoration: none; transition: opacity .15s; }
+.c-val a:hover { opacity: .7; }
+.cap-grid { display: grid; gap: 12px; margin: 18px 0; }
+.cap-card { border: 1px solid var(--border); background: rgba(0,255,136,.025); padding: 13px 14px; }
+.cap-k { color: var(--accent); font-size: 11px; letter-spacing: .14em; margin-bottom: 7px; }
+.cap-v { color: var(--fg); font-size: 13px; line-height: 1.85; }
+.cap-v span { color: var(--mid); }
+/* glitch */
+.glitch { position: relative; }
+.glitch::before,.glitch::after { content: attr(data-t); position: absolute; inset: 0; opacity: 0; }
+.glitch.go::before { color: var(--red); opacity: .7; animation: gh .3s steps(1) forwards; transform: translateX(-2px); }
+.glitch.go::after  { color: var(--accent); opacity: .7; animation: gh .3s steps(1) .05s forwards; transform: translateX(2px); }
+@keyframes gh {
+  0%,100%{ clip-path:none; }
+  30%{ clip-path:polygon(0 10%,100% 10%,100% 30%,0 30%); }
+  60%{ clip-path:polygon(0 60%,100% 60%,100% 72%,0 72%); }
+}
+::selection { background: var(--accent); color:#000; }
+</style>
+</head>
+<body style="">
+
+<div id="cursor" class="" style="display: block; left: 1697px; top: 4.00098px;"></div>
+<div id="crt"></div>
+<div id="toast" class="">inclusive selected — double-click to open</div>
+
+<!-- ══════════════════════ BOOT ══════════════════════ -->
+<div id="boot">
+  <div class="boot-hdr glitch" data-t="LM_OS v2.4.1 — PORTFOLIO SYSTEM">
+    LM_OS v2.4.1 — PORTFOLIO SYSTEM
+  </div>
+  <div class="boot-log" id="blog"></div>
+  <div class="boot-prog">
+    <div class="prog-track"><div class="prog-fill" id="pbar"></div></div>
+    <div class="prog-pct" id="ppct">0%</div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MAIN ══════════════════════ -->
+<div id="main">
+
+  <div id="statusbar">
+    <span class="sb-name">LM_OS</span>
+    <span class="sb-sep">│</span>
+    <span class="sb-role">ludovico morando — creative system</span>
+    <span class="sb-sep">│</span>
+    <span class="sb-status" id="sbst">● RENDERING</span>
+    <span id="sb-clock">20:07:25</span>
+  </div>
+
+  <div id="desktop">
+
+    <!-- ══ LEFT PANEL ══ -->
+    <div id="left-panel">
+      <div class="lp-label">// system/</div>
+      <div class="lp-file" data-open="about">
+        <span class="lp-bracket">[</span>
+        <span class="lp-name">about_me<span class="lp-ext">.md</span></span>
+        <span class="lp-bracket">]</span>
+      </div>
+      <div class="lp-file" data-open="skills">
+        <span class="lp-bracket">[</span>
+        <span class="lp-name">skills_manifest<span class="lp-ext">.cfg</span></span>
+        <span class="lp-bracket">]</span>
+      </div>
+      <div class="lp-file sel" data-open="contact">
+        <span class="lp-bracket">[</span>
+        <span class="lp-name">contact<span class="lp-ext">.lnk</span></span>
+        <span class="lp-bracket">]</span>
+      </div>
+      <div class="lp-label">// projects/</div>
+      <div class="lp-file" data-open="mea"><span class="lp-bracket">[</span><span class="lp-name">mea_maxima_culpa<span class="lp-ext">.ths</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="inclusive"><span class="lp-bracket">[</span><span class="lp-name">inclusive_design_ohbo<span class="lp-ext">.obho</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="figliuolo"><span class="lp-bracket">[</span><span class="lp-name">figliuolo_di_dio<span class="lp-ext">.act</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="enkay"><span class="lp-bracket">[</span><span class="lp-name">enkay_x_christofle<span class="lp-ext">.cut</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="homebag"><span class="lp-bracket">[</span><span class="lp-name">home_bag<span class="lp-ext">.bag</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="mrgulliver"><span class="lp-bracket">[</span><span class="lp-name">mr_gulliver<span class="lp-ext">.out</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="propaganda"><span class="lp-bracket">[</span><span class="lp-name">propaganda<span class="lp-ext">.pst</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="badbusiness"><span class="lp-bracket">[</span><span class="lp-name">bad_business<span class="lp-ext">.bb</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="quantum"><span class="lp-bracket">[</span><span class="lp-name">quantum<span class="lp-ext">.qtm</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-file" data-open="x"><span class="lp-bracket">[</span><span class="lp-name">x_studies<span class="lp-ext">.x</span></span><span class="lp-bracket">]</span></div>
+      <div class="lp-label">// commands/</div>
+      <div class="lp-cmds">
+        <div class="lp-row"><span class="lp-cmd" data-cmd="projects">projects</span><span class="lp-desc">list all projects</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="about">about</span><span class="lp-desc">open about file</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="skills">skills</span><span class="lp-desc">show skills config</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="contact">contact</span><span class="lp-desc">contact info</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="clear">clear</span><span class="lp-desc">close all windows</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="ls">ls</span><span class="lp-desc">list filesystem</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="whoami">whoami</span><span class="lp-desc">user information</span></div>
+        <div class="lp-row"><span class="lp-cmd" data-cmd="hello">hello</span><span class="lp-desc">greet the system</span></div>
+        <span class="lp-sep"></span>
+        <span class="lp-footer">double-click any file<br>to open it</span>
+      </div>
+    </div>
+
+    <!-- ══ RIGHT INFO PANEL ≥1100px ══ -->
+    <div id="info-panel">
+      <div class="ip-section">
+        <div class="ip-title">// SYSTEM INFO</div>
+        <div class="ip-row"><span class="ip-key">USER</span><span class="ip-val">ludovico.morando</span></div>
+        <div class="ip-row"><span class="ip-key">ROLE</span><span class="ip-val">Fashion &amp; Accessory Designer</span></div>
+        <div class="ip-row"><span class="ip-key">FIELD</span><span class="ip-val">Fashion / Accessories</span></div>
+        <div class="ip-row"><span class="ip-key">LOCATION</span><span class="ip-val">Milan, IT</span></div>
+        <div class="ip-row"><span class="ip-key">STATUS</span><span class="ip-val" style="color:var(--accent)">● available</span></div>
+      </div>
+      <div class="ip-section">
+        <div class="ip-title">// SPECIALTIES</div>
+        <div style="padding:6px 0;line-height:2">
+          <span class="ip-tag">ACCESSORY DESIGN</span>
+          <span class="ip-tag">FOOTWEAR</span>
+          <span class="ip-tag">FASHION RESEARCH</span>
+          <span class="ip-tag">GRAPHIC IDENTITY</span>
+          <span class="ip-tag">POSTER SYSTEMS</span>
+          <span class="ip-tag">BACKSTAGE DIRECTION</span>
+        </div>
+      </div>
+      <div class="ip-section">
+        <div class="ip-title">// CONTACT</div>
+        <div class="ip-row"><span class="ip-key">EMAIL</span><span class="ip-val" style="color:var(--accent)">ludovicomorando@gmail.com</span></div>
+        <div class="ip-row"><span class="ip-key">IG</span><span class="ip-val">@ludovico_worando</span></div>
+      </div>
+      <div class="ip-hint">
+        type <span style="color:var(--accent)">help</span> in terminal ↓<br>
+        double-click files to open
+      </div>
+    </div>
+
+    <!-- ══ DESKTOP CONTENT (ASCII + ICONS) ══ -->
+    <div id="desktop-content">
+
+      <div id="ludo-ascii" aria-label="LUDOVICO" class="breathing">
+<span class="al vis">██╗     ██╗   ██╗██████╗  ██████╗ ██╗   ██╗██╗ ██████╗ ██████╗ </span>
+<span class="al vis">██║     ██║   ██║██╔══██╗██╔═══██╗██║   ██║██║██╔════╝██╔═══██╗</span>
+<span class="al vis">██║     ██║   ██║██║  ██║██║   ██║██║   ██║██║██║     ██║   ██║</span>
+<span class="al vis">██║     ██║   ██║██║  ██║██║   ██║╚██╗ ██╔╝██║██║     ██║   ██║</span>
+<span class="al vis">███████╗╚██████╔╝██████╔╝╚██████╔╝ ╚████╔╝ ██║╚██████╗╚██████╔╝</span>
+<span class="al vis">╚══════╝ ╚═════╝ ╚═════╝  ╚═════╝   ╚═══╝  ╚═╝ ╚═════╝ ╚═════╝</span>
+      </div>
+
+      <!-- ICON CANVAS — project folders -->
+      <div id="icon-canvas">
+
+        <div class="desk-icon vis" data-proj="mea" style="left: 116px; top: 79px;">
+          <span class="di-folder">  +--------+
+ / .ths  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">mea_maxima_culpa<span class="di-ext">.ths</span></span>
+        </div>
+
+        <div class="desk-icon vis sel" data-proj="inclusive" style="left: 579px; top: 158px;">
+          <span class="di-folder">  +--------+
+ / .obho /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">inclusive_design<span class="di-ext">.obho</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="figliuolo" style="left: 309px; top: 375px;">
+          <span class="di-folder">  +--------+
+ / .act  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">figliuolo_di_dio<span class="di-ext">.act</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="enkay" style="left: 926px; top: 59px;">
+          <span class="di-folder">  +--------+
+ / .cut  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">enkay_x_christofle<span class="di-ext">.cut</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="homebag" style="left: 733px; top: 335px;">
+          <span class="di-folder">  +--------+
+ / .bag  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">home_bag<span class="di-ext">.bag</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="mrgulliver" style="left: 1235px; top: 197px;">
+          <span class="di-folder">  +--------+
+ / .out  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">mr_gulliver<span class="di-ext">.out</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="propaganda" style="left: 1062px; top: 542px;">
+          <span class="di-folder">  +--------+
+ / .pst  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">propaganda<span class="di-ext">.pst</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="badbusiness" style="left: 1504px; top: 122px;">
+          <span class="di-folder">  +--------+
+ / .bb   /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">bad_business<span class="di-ext">.bb</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="quantum" style="left: 1428px; top: 414px;">
+          <span class="di-folder">  +--------+
+ / .qtm  /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">quantum<span class="di-ext">.qtm</span></span>
+        </div>
+
+        <div class="desk-icon vis" data-proj="x" style="left: 547px; top: 615px;">
+          <span class="di-folder">  +--------+
+ / .x    /|
++--------+ |
+|        | |
+|        | /
++--------+</span>
+          <span class="di-name">x_studies<span class="di-ext">.x</span></span>
+        </div>
+
+        <div class="desk-icon contact-icon" data-proj="contact">
+          <span class="di-folder">  +--------+
+ / .lnk  /|
++--------+ |
+|  MAIL  | |
+|        | /
++--------+</span>
+          <span class="di-name">contact<span class="di-ext">.lnk</span></span>
+        </div>
+
+        <div class="desk-icon trash-icon vis" data-proj="trash" style="left: 1803px; top: 837px;">
+          <span class="di-folder">    ________
+   / ____ /|
+  /_/____/ |
+  | TRSH | |
+  |  ||  | /
+  |__||__|/</span>
+          <span class="di-name">trash<span class="di-ext">.bin</span></span>
+        </div>
+
+        <div id="mob-hint">tap a file to open it<br>tap terminal below to type commands</div>
+
+      </div><!-- /icon-canvas -->
+
+    </div><!-- /desktop-content -->
+
+    <div id="wlayer"></div>
+
+  </div><!-- /desktop -->
+
+  <div id="termbar">
+    <span id="term-prompt">lm@sys:~$</span>
+    <input id="term-input" type="text" placeholder="type a command..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send">
+    <span id="term-copyright">// © 2026 LUDOVICO MORANDO — ALL RIGHTS RESERVED //</span>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════
+   UTILS
+═══════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const isMob   = () => window.innerWidth < 768;
+const isTouch = () => window.matchMedia('(hover:none)').matches;
+function escH(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ═══════════════════════════════════════
+   CURSOR
+═══════════════════════════════════════ */
+const curEl = $('cursor');
+let cx=0,cy=0,mx=0,my=0;
+if(!isTouch()){
+  curEl.style.display='block';
+  // document.body.style.cursor='none';
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+  document.addEventListener('mousedown',()=>curEl.classList.add('click'));
+  document.addEventListener('mouseup',  ()=>curEl.classList.remove('click'));
+  (function raf(){
+    cx+=(mx-cx)*.2; cy+=(my-cy)*.2;
+    curEl.style.left=cx+'px'; curEl.style.top=cy+'px';
+    requestAnimationFrame(raf);
+  })();
+}
+
+/* ═══════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════ */
+const clkEl=$('sb-clock');
+function tick(){
+  const n=new Date(), p=v=>String(v).padStart(2,'0');
+  clkEl.textContent=`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+}
+tick(); setInterval(tick,1000);
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+const toastEl=$('toast');
+let toastT;
+function toast(msg){
+  toastEl.textContent=msg; toastEl.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove('show'),2800);
+}
+
+/* ═══════════════════════════════════════
+   GLITCH
+═══════════════════════════════════════ */
+function glitch(el){ if(!el)return; el.classList.add('go'); setTimeout(()=>el.classList.remove('go'),450); }
+const bootHdr=document.querySelector('.boot-hdr');
+
+/* ═══════════════════════════════════════
+   BOOT
+═══════════════════════════════════════ */
+const blogEl=$('blog'), pbarEl=$('pbar'), ppctEl=$('ppct');
+const bootEl=$('boot'), mainEl=$('main'), mobHint=$('mob-hint');
+
+const BOOT=[
+  {t:'BIOS v1.4.2 — initializing registers...',      c:'',    d:0},
+  {t:'CPU: LM-CORE 4.0GHz × 8 — OK',                c:'ok',  d:80},
+  {t:'RAM: 32GB DDR5 — OK',                          c:'ok',  d:80},
+  {t:'STORAGE: scanning portfolio.sys ...',          c:'warn',d:80},
+  {t:'STORAGE: 10 project files found — OK',         c:'ok',  d:112},
+  {t:'NETWORK: connecting reality.net — OK',         c:'ok',  d:139},
+  {t:'GPU: creative_engine v9 — OK',                 c:'ok',  d:163},
+  {t:'WARN: idealism overflow — non-critical',       c:'warn',d:188},
+  {t:'Loading modules...',                           c:'',    d:212},
+  {t:'  [OK] typography.mod',                        c:'ok',  d:231},
+  {t:'  [OK] color_theory.mod',                      c:'ok',  d:249},
+  {t:'  [OK] motion_engine.mod',                     c:'ok',  d:266},
+  {t:'  [!!] perfectionism.mod — always running',    c:'warn',d:283},
+  {t:'Mounting /projects — 10 entries',              c:'',    d:315},
+  {t:'AUTH: ludovico.morando — GRANTED',             c:'ok',  d:352},
+  {t:'',                                             c:'',    d:378},
+  {t:'> WELCOME TO LM_OS v2.4.1',                   c:'ok',  d:393},
+];
+
+let pTarget=0,pNow=0;
+(function animBar(){
+  if(pNow<pTarget) pNow=Math.min(pNow+1.5,pTarget);
+  pbarEl.style.width=pNow+'%'; ppctEl.textContent=Math.round(pNow)+'%';
+  if(pNow<100) requestAnimationFrame(animBar);
+})();
+
+BOOT.forEach((ln,i)=>{
+  setTimeout(()=>{
+    const el=document.createElement('span');
+    el.className='ln '+ln.c; el.textContent=ln.t;
+    blogEl.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add('vis'));
+    pTarget=Math.round((i/BOOT.length)*88);
+    if(i===BOOT.length-1){ setTimeout(()=>{pTarget=100;setTimeout(launch,260);},180); }
+  },ln.d);
+});
+
+function launch(){
+  bootEl.classList.add('out');
+  setTimeout(()=>{
+    bootEl.style.display='none';
+    mainEl.classList.add('on');
+    glitch(bootHdr);
+    if(isMob()) mobHint.style.display='block';
+    toast('SYSTEM READY — '+(isMob()?'tap files to open':'double-click files or type commands'));
+    animateLudoAscii();
+    placeIconsRandomly();
+  },360);
+}
+
+/* ═══════════════════════════════════════
+   ASCII LUDOVICO
+═══════════════════════════════════════ */
+function animateLudoAscii(){
+  const lines=document.querySelectorAll('#ludo-ascii .al');
+  lines.forEach((ln,i)=>{
+    setTimeout(()=>{
+      ln.classList.add('vis');
+      if(i===lines.length-1){
+        setTimeout(()=>document.getElementById('ludo-ascii').classList.add('breathing'),400);
+      }
+    },i*80);
+  });
+}
+
+/* ═══════════════════════════════════════
+   RANDOM NON-OVERLAPPING ICON PLACEMENT
+═══════════════════════════════════════ */
+function placeIconsRandomly(){
+  if(isMob()){ animateDesktopIcons(); return; }
+
+  const canvas=$('icon-canvas');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const cw=canvas.offsetWidth, ch=canvas.offsetHeight;
+    if(cw<10||ch<10){ animateDesktopIcons(); return; }
+
+    const icons=Array.from(canvas.querySelectorAll('.desk-icon'));
+    const IW=118, IH=96;
+    const PAD_X=28, PAD_Y=28;
+    const MIN_X=IW+24, MIN_Y=IH+18;
+    const placed=[];
+
+    icons.forEach(icon=>{
+      let x,y,ok,tries=0;
+      const maxX=Math.max(PAD_X, cw-IW-PAD_X);
+      const maxY=Math.max(PAD_Y, ch-IH-PAD_Y);
+      do {
+        x=PAD_X+Math.random()*(maxX-PAD_X);
+        y=PAD_Y+Math.random()*(maxY-PAD_Y);
+        ok=placed.every(p=>!(Math.abs(p.x-x)<MIN_X && Math.abs(p.y-y)<MIN_Y));
+        tries++;
+      } while(!ok && tries<600);
+
+      placed.push({x,y});
+      icon.style.left=Math.round(x)+'px';
+      icon.style.top =Math.round(y)+'px';
+    });
+
+    animateDesktopIcons();
+  }));
+}
+
+function animateDesktopIcons(){
+  document.querySelectorAll('.desk-icon').forEach((ic,i)=>{
+    setTimeout(()=>ic.classList.add('vis'), 480+i*70);
+  });
+}
+
+/* ═══════════════════════════════════════
+   STATUS AMBIENT
+═══════════════════════════════════════ */
+const sbstEl=$('sbst');
+const STATES=['● ONLINE','● PROCESSING','● IDLE','● RENDERING','● ONLINE','● THINKING','● ONLINE'];
+let si=0;
+setInterval(()=>{si=(si+1)%STATES.length;sbstEl.textContent=STATES[si];},5200);
+setInterval(()=>{if(Math.random()<.25)glitch(bootHdr);},10000);
+
+/* ═══════════════════════════════════════
+   PROJECT DATA - imported portfolio projects
+═══════════════════════════════════════ */
+const PROJS={
+  mea:{
+    name:'Mea Maxima Culpa',ext:'.ths',
+    type:'THESIS / FASHION ACCESSORIES / RESEARCH',
+    client:'Academic Thesis',year:'2026',duration:'thesis project',role:'Designer / Researcher',
+    desc:'MEA MAXIMA CULPA constitutes a profound investigation into guilt viewed not as an individual failing but as a defining collective condition. The project examines how guilt is systematically learned, absorbed and repeated within social structures and systems of family belonging. Through fashion and accessories, the thesis materializes guilt as a tangible weight that is worn, carried and embodied. Sacred iconography merges with the aesthetics of everyday crime to describe a state of tension between control and deviation, discipline and loyalty, survival and resistance.',
+    tags:['THESIS','GUILT','ACCESSORIES','RITUAL','UNDERGROUND'],
+    images:['assets/photo-001-b7c7cb1edd5b.jpg','assets/photo-002-e3d0316e6c17.jpg','assets/photo-003-9fb62ffd1370.jpg','assets/photo-004-bd26216762c8.jpg','assets/photo-005-44bc1470aa6a.jpg','assets/photo-006-c16d853d984c.jpg','assets/photo-007-4e869b1a071f.jpg','assets/photo-008-d375057f82a4.jpg','assets/photo-009-189e5d4b24da.jpg','assets/photo-010-af24452e4a4c.jpg','assets/photo-011-9b500bec9c95.jpg','assets/photo-012-a763d2fe10c7.jpg','assets/photo-013-ae1552dc1132.jpg','assets/photo-014-4451c65c72e2.jpg','assets/photo-015-a111024c5b64.jpg','assets/photo-016-0174f4430b43.jpg','assets/photo-017-4fbd319f3dbc.jpg','assets/photo-018-ac872c025983.jpg','assets/photo-019-a9a22ab94b7a.jpg','assets/photo-020-01a5ad0fd2de.jpg']
+  },
+  inclusive:{
+    name:'Inclusive Design - OHBO',ext:'.obho',
+    type:'INCLUSIVE ACCESSORY SYSTEM / PRODUCT RESEARCH',
+    client:'OHBO concept',year:'2026',duration:'product system',role:'Designer',
+    desc:'This project stems from a desire to create accessories that transcend mere aesthetics and function. These objects are envisioned as sensory and relational tools designed to stimulate emotions, memories and genuine connections between people of all generations and backgrounds. Through tactile surfaces, evocative materials and colors selected to influence emotional well-being, OBHO becomes a timeless, accessible and inclusive collection that adapts to different needs while embracing upcycling and sustainable design.',
+    tags:['INCLUSIVE DESIGN','OHBO','ACCESSIBILITY','TACTILE','PRODUCT'],
+    images:['assets/photo-021-788e8982ad57.jpg','assets/photo-022-27401a16fa81.jpg','assets/photo-023-d391a22cf77c.jpg','assets/photo-024-ef14331cfaf9.jpg','assets/photo-025-961fc8e72984.jpg','assets/photo-026-9655b8864002.jpg','assets/photo-027-0a1891aaa4b0.jpg','assets/photo-028-242cc0510552.jpg','assets/photo-029-2037f0bb56da.jpg','assets/photo-030-dfb206e32632.jpg','assets/photo-031-3f67f2bc7d05.jpg','assets/photo-032-4f930fee55ab.jpg','assets/photo-033-15963b1e14a5.jpg']
+  },
+  figliuolo:{
+    name:'Il Figliuolo di Dio',ext:'.act',
+    type:'MEN\'S ACCESSORIES / FOOTWEAR / DARK NARRATIVE',
+    client:'Collection concept',year:'2026',duration:'capsule project',role:'Designer / Curator',
+    desc:'Il Figliuolo di Dio - The Son of God - emerges as an avant-garde collection of men\'s accessories curated to challenge the boundaries between sacred art and functional design. The project draws power from biblical narratives viewed through a dark and grotesque lens, where crucifixion and surreal resurrection inspire bags and footwear with bold geometric volumes, raw jute, cracked cowhide, Frankenstein nappa leather and oxidized metal details.',
+    tags:['HORROR','MENSWEAR','BAGS','FOOTWEAR','GROTESQUE'],
+    images:['assets/photo-034-27866523e570.jpg','assets/photo-035-59e9359d281a.jpg','assets/photo-036-38c25e57de91.jpg','assets/photo-037-5d49beade4d9.jpg','assets/photo-038-051dcee12c97.jpg','assets/photo-039-30e4fd6c491a.jpg','assets/photo-040-fe30fd2a5475.jpg','assets/photo-041-24b50a75e8d1.jpg','assets/photo-042-72c1283a9a1a.jpg','assets/photo-043-3dcf4501a8a4.jpg','assets/photo-044-1fb5066530cb.jpg','assets/photo-045-cd662b68f503.jpg','assets/photo-046-6a737bb4f9e3.jpg','assets/photo-047-08fc5ac67178.jpg','assets/photo-048-477d81fdb648.jpg','assets/photo-049-fe4991a1dd48.jpg','assets/photo-050-48b3418db568.jpg','assets/photo-051-71b9e088686a.jpg','assets/photo-052-6c4168965d3e.jpg','assets/photo-053-7f8832661253.jpg','assets/photo-054-88d3d08a80ec.jpg','assets/photo-055-a5819f275663.jpg','assets/photo-056-77f08e0b63be.jpg']
+  },
+  enkay:{
+    name:'Enkay x Christofle',ext:'.cut',
+    type:'OBJECT DESIGN / TABLEWARE / LUXURY CODES',
+    client:'Enkay x Christofle',year:'2026',duration:'concept sketches',role:'Designer',
+    desc:'The Enkay x Christofle tableware collection redefines the boundaries of functional art through a design language that is both brutal and profoundly luxurious. Each piece of cutlery becomes a monolithic statement where the raw honesty of the material challenges traditional notions of elegance. By marrying Christofle historic craftsmanship with Enkay dark and unconventional luxury, the collection turns the contemporary table into a space for avant-garde expression.',
+    tags:['OBJECT','TABLEWARE','SKETCH','LUXURY','FORM'],
+    images:['assets/photo-057-fb81249cf283.jpg','assets/photo-058-e3dfa2c80a48.jpg','assets/photo-059-9e9feca6ad05.jpg']
+  },
+  homebag:{
+    name:'Home Bag',ext:'.bag',
+    type:'BAG DESIGN / DOMESTIC MEMORY / STREET OBJECT',
+    client:'Accessory concept',year:'2026',duration:'bag prototype',role:'Designer',
+    desc:'The Home Bag is an evolving performance art piece that redefines the accessory as a brutalist manifesto where street culture merges with high design. Crafted from raw architectural elements including concrete and industrial hardware, each piece transforms through the creative interventions of visiting artists. Authentic graffiti and urban traces make every bag a unique living canvas suspended between fine art, fashion and functional sculpture.',
+    tags:['BAG','DOMESTIC','GRAFFITI','TEXTURE','ACCESSORY'],
+    images:['assets/photo-060-a4a543025837.jpg','assets/photo-061-5a7692aea5e2.jpg','assets/photo-062-7c7a38f94393.jpg','assets/photo-063-fcbc032a8ef0.jpg']
+  },
+  mrgulliver:{
+    name:'Mr Gulliver',ext:'.out',
+    type:'GRAPHIC CAPSULE / STREETWEAR / IDENTITY',
+    client:'Outsider concept',year:'2026',duration:'visual capsule',role:'Designer / Art Direction',
+    desc:'Two capsule collections developed for Mr. Gulliver. The project builds an outsider streetwear identity through graphics, garments and wearable documentation, translating the idea of travel, scale and estrangement into a compact visual system.',
+    tags:['STREETWEAR','GRAPHIC','OUTSIDER','LOGO','CAPSULE'],
+    images:['assets/photo-064-75c38609b0cc.jpg','assets/photo-065-b00f3968b583.jpg','assets/photo-066-95acfa3d06b5.jpg','assets/photo-067-c6a1e97440a3.jpg','assets/photo-068-6f31dbca38a1.jpg','assets/photo-069-e8b67146bf98.jpg','assets/photo-070-345764120109.jpg']
+  },
+  propaganda:{
+    name:'Propaganda',ext:'.pst',
+    type:'POSTER SYSTEM / VISUAL COMMUNICATION',
+    client:'Editorial concept',year:'2026',duration:'poster series',role:'Graphic Designer',
+    desc:'This exclusive collection of posters bridges the raw energy of hacker-punk and the vibrant resonance of pop culture to transform contemporary spaces into forums of intellectual expression. Each piece acts as a visual manifesto designed to challenge perceptions and ignite dialogue, blending avant-garde aesthetics with a provocative spirit that actively redefines the atmosphere of any curated interior.',
+    tags:['POSTER','GRAPHIC','CAMPAIGN','COLLAGE','TYPE'],
+    images:['assets/photo-071-202a064acf54.jpg','assets/photo-072-f11d8d318c0f.jpg','assets/photo-073-e9779ca7eef4.jpg','assets/photo-074-a171d64c9b2c.jpg']
+  },
+  badbusiness:{
+    name:'Bad Business',ext:'.bb',
+    type:'FASHION COLLECTION / SOCIAL NARRATIVE / UNDERGROUND',
+    client:'Collection concept',year:'2026',duration:'collection chapter',role:'Designer / Art Direction',
+    desc:'The collection evokes the stark glare of unforgiving lights illuminating clandestine business. It speaks of deep affiliations, systemic ties and the raw realities of petty crime, while also preserving the enduring power of family, friendship, love and belonging. These contrasting elements intersect within the fabrics and deepen into richer shades of blue, tracing the unbreakable red thread that binds us to our closest comrades.',
+    tags:['COLLECTION','UNDERGROUND','BLUE','AFFILIATION','NARRATIVE'],
+    images:['assets/photo-075-08c18a2aafcf.jpg','assets/photo-076-3331705f9215.jpg']
+  },
+  quantum:{
+    name:'Quantum',ext:'.qtm',
+    type:'FOOTWEAR / FUTURISM / SHOE CONCEPT',
+    client:'Footwear concept',year:'2026',duration:'shoe design chapter',role:'Footwear Designer',
+    desc:'The Quantum collection represents a visionary intersection where sustainability meets the striking narrative of brutalist architecture and cinematic drama. Each design is crafted from biodegradable materials such as mycelium and bioplastics alongside regenerated vegan leather. Sculptural heels, sharp geometric structures, modular elements and smart materials create an ecological yet theatrical vision of avant-garde footwear.',
+    tags:['FOOTWEAR','FUTURISM','SHOE DESIGN','SCULPTURAL','TECH'],
+    images:['assets/photo-077-d3c60adef4a2.jpg','assets/photo-078-6d9878b46b75.jpg','assets/photo-079-3fd4c6bba19f.jpg','assets/photo-080-094a1f1160a9.jpg','assets/photo-081-3c17dba1356d.jpg','assets/photo-082-a674ca7c34dd.jpg']
+  },
+  x:{
+    name:'X Studies',ext:'.x',
+    type:'LOGO STUDY / SYMBOL SYSTEM / IDENTITY',
+    client:'Identity archive',year:'2026',duration:'mark explorations',role:'Graphic Designer',
+    desc:'This series of fourteen prints draws inspiration from Wade Guyton and his approach to digital printing, where technological errors transform into aesthetic elements. Each piece explores the variations of a single form as the letter X is deconstructed and distorted through digital techniques. Repetition, glitches, overlays and textures turn the mechanical process into a reflection on control and randomness in contemporary digital art.',
+    tags:['LOGO','SYMBOL','IDENTITY','MARK','ARCHIVE'],
+    images:['assets/photo-083-925ba490506c.jpg','assets/photo-084-ddd010e36927.jpg','assets/photo-085-2fdcb02d947d.jpg','assets/photo-086-97a3cd66d968.jpg','assets/photo-087-75ecc0fcd2d3.jpg','assets/photo-088-a4f504c3dbe4.jpg','assets/photo-089-e3026af18612.jpg','assets/photo-090-5f425b6e7ecd.jpg','assets/photo-091-ef791e25a59f.jpg','assets/photo-092-ac4d2696c46c.jpg','assets/photo-093-38ee2da95798.jpg','assets/photo-094-ab45329e706b.jpg','assets/photo-095-3dad3635bd08.jpg','assets/photo-096-8041baa67038.jpg']
+  },
+  trash:{name:'Trash',ext:'.bin',special:'trash'},
+  about:{name:'About Me',ext:'.md',special:'about'},
+  skills:{name:'Skills Manifest',ext:'.cfg',special:'skills'},
+  contact:{name:'Contact',ext:'.lnk',special:'contact'}
+};
+
+function skillBar(name,pct){
+  return `<div class="skill-row">
+    <span class="skill-name">${name}</span>
+    <div class="skill-bar"><div class="skill-fill" style="width:${pct}%"></div></div>
+    <span class="skill-pct">${pct}%</span>
+  </div>`;
+}
+
+const PROJECT_IMAGE_BASE='';
+const PROJECT_IMAGES=['assets/photo-001-b7c7cb1edd5b.jpg'];
+
+function projectGalleryHTML(id){
+  const p=PROJS[id]||{};
+  const images=(p.images&&p.images.length?p.images:PROJECT_IMAGES);
+  const slides=images.map((name,i)=>`
+        <div class="gallery-slide">
+          <img src="${PROJECT_IMAGE_BASE}${name}" alt="${escH((p.name||'Portfolio')+' image '+(i+1))}" loading="${i===0?'eager':'lazy'}">
+        </div>`).join('');
+  const dots=images.map((_,i)=>`<button class="gallery-dot${i===0?' on':''}" data-gal-dot="${i}" aria-label="Image ${i+1}"></button>`).join('');
+  return `
+    <div class="project-gallery" data-gallery="${escH(id)}" data-index="0" data-total="${images.length}">
+      <div class="gallery-viewport">
+        <div class="gallery-track">${slides}</div>
+        <button class="gallery-btn prev" data-gal-move="-1" aria-label="Previous image">‹</button>
+        <button class="gallery-btn next" data-gal-move="1" aria-label="Next image">›</button>
+      </div>
+      <div class="gallery-meta">
+        <span class="gallery-count">01 / ${String(images.length).padStart(2,'0')}</span>
+        <span class="gallery-note">full image / no crop</span>
+        <div class="gallery-dots">${dots}</div>
+      </div>
+    </div>`;
+}
+
+function projHTML(id){
+  const p=PROJS[id];
+  if(!p) return `<div class="cres"><span class="r">ERROR: file not found — id: ${escH(id)}</span></div>`;
+
+  if(p.special==='about') return `
+    <div class="cres"><span class="a">// about_me.md</span><span class="d"> - updated from portfolio 2026</span></div>
+    <div style="display:grid;grid-template-columns:minmax(150px,210px) 1fr;gap:18px;align-items:end;margin:20px 0;padding-bottom:18px;border-bottom:1px solid var(--border)">
+      <div style="border:1px solid var(--border);background:#050505;padding:7px;box-shadow:0 0 22px rgba(0,255,136,.06)">
+        <img src="assets/ludovico-about.jpg" alt="Ludovico Morando" loading="lazy" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover;filter:grayscale(1);">
+      </div>
+      <div>
+        <div style="font-size:clamp(20px,5vw,28px);color:var(--fg);letter-spacing:.04em;margin-bottom:4px">Ludovico Morando Guido</div>
+        <div style="font-size:13px;color:var(--accent);letter-spacing:.16em">FASHION & ACCESSORY DESIGNER - MILAN, ITALY</div>
+        <div class="cres" style="margin-top:14px;font-size:12px"><span class="d">profile image:</span> Ludovico Morando</div>
+      </div>
+    </div>
+    <div class="pdesc">With a background in graphic communication and a specialization in Fashion Design focused on accessories, Ludovico builds a visual world rooted in underground culture: hip-hop, punk, psychedelia, cinema and visual arts. Research and analysis are the starting point of every project, shaping a dramatic, layered and often deliberately unsettling language.</div>
+    <div class="pdesc">His experience in fashion combines design practice with event organization. As Backstage Director for Show Division, he worked on shows for designers including Tokyo James, Raf Simons, Sagaboi, Phan Dang Hoang and Maxivive, developing coordination, problem solving and pressure-management skills.</div>
+    <div style="margin:20px 0">
+      <div style="font-size:11px;color:var(--dim);letter-spacing:.14em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">FOCUS</div>
+      <div class="c-link"><span class="c-label">FIELD</span><span class="c-val">Fashion design, accessory design, footwear</span></div>
+      <div class="c-link"><span class="c-label">ROOTS</span><span class="c-val">Underground culture, cinema, ritual, affiliation</span></div>
+      <div class="c-link"><span class="c-label">METHOD</span><span class="c-val">Research, analysis, material experimentation</span></div>
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="cres" style="font-size:12px"><span class="d">open to:</span> fashion accessories - footwear - art direction - backstage/show coordination</div>
+    </div>`;
+
+  if(p.special==='skills') return `
+    <div class="cres"><span class="a">// skills_manifest.cfg</span><span class="d"> - extracted from Skills Manifest.pdf</span></div>
+    <div class="cap-grid">
+      <div class="cap-card">
+        <div class="cap-k">RESEARCH SYSTEM</div>
+        <div class="cap-v">Deconstructing contemporary mythologies to build new object narratives. <span>Design begins by analyzing social frictions and symbolic rituals, ensuring the final product operates as a cultural artifact rather than mere merchandise.</span></div>
+      </div>
+      <div class="cap-card">
+        <div class="cap-k">ACCESSORY LANGUAGE</div>
+        <div class="cap-v">The articulation of identity through structural and surface vocabulary. <span>Volumes and closures are treated as semiotic tools, transforming functional details into non-verbal manifestos.</span></div>
+      </div>
+      <div class="cap-card">
+        <div class="cap-k">MATERIAL THINKING</div>
+        <div class="cap-v">An unorthodox material alchemy driving the conceptual brief. <span>By merging circular upcycling practices with raw, abrasive textures, the material selection directly articulates notions of social inclusion and speculative futures.</span></div>
+      </div>
+      <div class="cap-card">
+        <div class="cap-k">SHOW PRACTICE</div>
+        <div class="cap-v">The systemic orchestration of live fashion presentation. <span>Managing the high-intensity operational chaos of the backstage while translating the distinct creative universes of designers like Sagaboi, Prada, Phan Dang Hoang and Maxivive into seamless runway execution.</span></div>
+      </div>
+      <div class="cap-card">
+        <div class="cap-k">VISUAL ROOTS</div>
+        <div class="cap-v">A design identity forged in the crucible of underground subcultures. <span>The visceral energy of hip-hop and psychedelic club spaces informs a dark, cinematic aesthetic that rejects superficial styling in favor of authentic subversion.</span></div>
+      </div>
+    </div>`;
+
+  if(p.special==='contact') return `
+    <div class="cres"><span class="a">// contact.lnk</span><span class="d"> - direct contacts</span></div>
+    <div style="margin:22px 0 18px;padding:18px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+      <div style="font-size:clamp(22px,5vw,34px);line-height:1.05;color:var(--fg);letter-spacing:.02em">Ludovico Morando</div>
+      <div style="margin-top:10px;max-width:720px;font-size:14px;line-height:1.9;color:var(--mid)">
+        Fashion accessories, footwear, research and show practice. Based in Milan, available for selected collaborations, creative direction and design projects.
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0 22px">
+      <a href="mailto:ludovicomorando@gmail.com" style="display:block;padding:16px;border:1px solid var(--border);background:rgba(0,255,136,.035);text-decoration:none">
+        <div style="font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:9px">EMAIL</div>
+        <div style="font-size:14px;color:var(--accent);word-break:break-word">ludovicomorando@gmail.com</div>
+      </a>
+      <a href="tel:+393499346102" style="display:block;padding:16px;border:1px solid var(--border);background:rgba(255,255,255,.025);text-decoration:none">
+        <div style="font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:9px">PHONE</div>
+        <div style="font-size:14px;color:var(--fg)">+39 349 934 6102</div>
+      </a>
+      <a href="https://instagram.com/ludovico_worando" target="_blank" rel="noopener" style="display:block;padding:16px;border:1px solid var(--border);background:rgba(255,255,255,.025);text-decoration:none">
+        <div style="font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:9px">INSTAGRAM</div>
+        <div style="font-size:14px;color:var(--accent)">@ludovico_worando</div>
+      </a>
+      <a href="https://www.linkedin.com/in/ludovico-morando01" target="_blank" rel="noopener" style="display:block;padding:16px;border:1px solid var(--border);background:rgba(255,255,255,.025);text-decoration:none">
+        <div style="font-size:10px;letter-spacing:.16em;color:var(--dim);margin-bottom:9px">LINKEDIN</div>
+        <div style="font-size:14px;color:var(--accent);word-break:break-word">ludovico-morando01</div>
+      </a>
+    </div>
+    <div style="display:grid;gap:10px;margin-top:18px">
+      <div class="cres"><span class="d">open to:</span> <span class="f">accessory design / footwear / fashion research / backstage direction</span></div>
+      <div class="cres"><span class="d">base:</span> <span class="a">Milan, Italy</span></div>
+    </div>`;
+  if(p.special==='trash') return `
+    <div style="margin:22px 0;padding:18px;border:1px solid var(--border);background:rgba(255,255,255,.02)">
+      <div style="font-size:clamp(18px,4vw,24px);color:var(--fg);letter-spacing:.08em">TRASH IS EMPTY</div>
+    </div>`;
+
+  /* Standard project */
+  return `
+    <div class="ph">
+      <div class="ph-name">${escH(p.name)}</div>
+      <div class="ph-type">${escH(p.type)}</div>
+    </div>
+    <div class="pmeta">
+      <div class="pm"><span class="pk">CLIENT</span><span class="pv">${escH(p.client)}</span></div>
+      <div class="pm"><span class="pk">YEAR</span><span class="pv">${escH(p.year)}</span></div>
+      <div class="pm"><span class="pk">DURATION</span><span class="pv">${escH(p.duration)}</span></div>
+      <div class="pm"><span class="pk">ROLE</span><span class="pv">${escH(p.role)}</span></div>
+    </div>
+    ${projectGalleryHTML(id)}
+    <div class="pdesc">${p.desc||''}</div>
+    <div class="ptags">${p.tags.map(t=>`<span class="ptag">${t}</span>`).join('')}</div>`;
+}
+
+/* ═══════════════════════════════════════
+   WINDOW MANAGER
+═══════════════════════════════════════ */
+const wlayer=$('wlayer');
+let topZ=10;
+const wins=new Map();
+
+function openWin(id){
+  const p=PROJS[id]; if(!p) return;
+  if(wins.has(id)){ focusWin(wins.get(id)); return; }
+  const el=document.createElement('div');
+  el.className='win focused';
+  el.setAttribute('data-id',(p.name+p.ext).toLowerCase().replace(/\s/g,'_'));
+  el.dataset.wid=id;
+  el.style.zIndex=++topZ;
+  if(!isMob()){
+    const w=p.special?520:660;
+    const maxL=Math.max(0,wlayer.offsetWidth-w-20);
+    const maxT=Math.max(0,wlayer.offsetHeight-380);
+    el.style.width=w+'px';
+    el.style.maxHeight=(wlayer.offsetHeight-40)+'px';
+    el.style.left=(40+Math.random()*Math.min(maxL,180))+'px';
+    el.style.top=(36+Math.random()*Math.min(maxT,120))+'px';
+  }
+  el.innerHTML=`
+    <div class="win-bar" data-handle>
+      <div class="wbtns">
+        <div class="wb close" data-close title="close">×</div>
+        <div class="wb mini"  data-mini title="min">─</div>
+        <div class="wb maxi"  data-maxi title="max">□</div>
+      </div>
+      <div class="win-title"><span>${escH(p.name)}${escH(p.ext)}</span> — LM_OS</div>
+    </div>
+    <div class="win-body">${projHTML(id)}</div>`;
+  wlayer.appendChild(el);
+  wins.set(id,el);
+  wireWindow(el,id);
+  if(!isMob()) makeDraggable(el);
+}
+
+function wireWindow(el,id){
+  el.querySelector('[data-close]').addEventListener('click',e=>{e.stopPropagation();closeWin(el,id);});
+  let maxed=false;
+  const maxiBtn=el.querySelector('[data-maxi]');
+  if(maxiBtn){
+    maxiBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(!maxed){
+        el._p={l:el.style.left,t:el.style.top,w:el.style.width,mh:el.style.maxHeight};
+        el.style.cssText+=';left:0!important;top:0!important;width:'+wlayer.offsetWidth+'px!important;max-height:'+wlayer.offsetHeight+'px!important';
+        maxed=true;
+      } else {
+        el.style.left=el._p.l;el.style.top=el._p.t;el.style.width=el._p.w;el.style.maxHeight=el._p.mh;
+        maxed=false;
+      }
+    });
+  }
+  el.addEventListener('mousedown',()=>focusWin(el));
+  el.addEventListener('touchstart',()=>focusWin(el),{passive:true});
+  if(!isTouch()){
+    el.addEventListener('mouseenter',()=>curEl.classList.add('onwin'));
+    el.addEventListener('mouseleave',()=>curEl.classList.remove('onwin'));
+  }
+}
+
+function setGalleryIndex(gallery,next){
+  const total=Number(gallery.dataset.total||gallery.querySelectorAll('.gallery-slide').length||1);
+  const index=(next+total)%total;
+  gallery.dataset.index=index;
+  gallery.style.setProperty('--gal-index',index);
+  const count=gallery.querySelector('.gallery-count');
+  if(count) count.textContent=`${String(index+1).padStart(2,'0')} / ${String(total).padStart(2,'0')}`;
+  gallery.querySelectorAll('.gallery-dot').forEach((dot,i)=>dot.classList.toggle('on',i===index));
+}
+
+wlayer.addEventListener('click',e=>{
+  const move=e.target.closest('[data-gal-move]');
+  const dot=e.target.closest('[data-gal-dot]');
+  if(!move && !dot) return;
+  const gallery=e.target.closest('.project-gallery');
+  if(!gallery) return;
+  e.stopPropagation();
+  const current=Number(gallery.dataset.index||0);
+  const next=dot ? Number(dot.dataset.galDot) : current+Number(move.dataset.galMove);
+  setGalleryIndex(gallery,next);
+});
+
+function focusWin(el){
+  wlayer.querySelectorAll('.win').forEach(w=>w.classList.remove('focused'));
+  el.classList.add('focused'); el.style.zIndex=++topZ;
+}
+
+function closeWin(el,id){
+  curEl.classList.remove('onwin'); el.classList.add('closing');
+  el.addEventListener('animationend',()=>{el.remove();wins.delete(id);},{once:true});
+}
+
+/* ═══════════════════════════════════════
+   WINDOW DRAG
+═══════════════════════════════════════ */
+function makeDraggable(win){
+  const handle=win.querySelector('[data-handle]');
+  let drag=false,ox=0,oy=0,sl=0,st=0;
+  function pt(e){ return e.touches?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY}; }
+  function start(e){
+    if(e.target.closest('.wbtns')) return;
+    drag=true; focusWin(win);
+    const p=pt(e); ox=p.x; oy=p.y;
+    sl=win.offsetLeft; st=win.offsetTop;
+    document.body.style.userSelect='none'; e.preventDefault();
+  }
+  function move(e){
+    if(!drag) return;
+    const p=pt(e);
+    const nl=Math.max(0,Math.min(sl+(p.x-ox),wlayer.offsetWidth-win.offsetWidth));
+    const nt=Math.max(0,Math.min(st+(p.y-oy),wlayer.offsetHeight-32));
+    win.style.left=nl+'px'; win.style.top=nt+'px';
+  }
+  function end(){ if(drag){drag=false;document.body.style.userSelect='';} }
+  handle.addEventListener('mousedown',start);
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',end);
+  handle.addEventListener('touchstart',start,{passive:false});
+  document.addEventListener('touchmove',e=>{if(drag){e.preventDefault();move(e);}},{passive:false});
+  document.addEventListener('touchend',end);
+}
+
+/* ═══════════════════════════════════════
+   COMMAND WINDOWS
+═══════════════════════════════════════ */
+let cmdC=0;
+function cmdWin(id,title,html){
+  if(wins.has(id)){closeWin(wins.get(id),id);setTimeout(()=>_mkCmd(id,title,html),200);return;}
+  _mkCmd(id,title,html);
+}
+function _mkCmd(id,title,html){
+  const el=document.createElement('div');
+  el.className='win focused';
+  el.setAttribute('data-id',title);
+  el.dataset.wid=id;
+  el.style.zIndex=++topZ;
+  el.style.width=isMob()?'100%':'420px';
+  if(!isMob()){
+    el.style.left=(50+(cmdC%5)*26)+'px';
+    el.style.top=(60+(cmdC%4)*22)+'px';
+    el.style.maxHeight=(wlayer.offsetHeight-60)+'px';
+  }
+  cmdC++;
+  el.innerHTML=`
+    <div class="win-bar" data-handle>
+      <div class="wbtns">
+        <div class="wb close" data-close>×</div>
+        <div class="wb mini"  data-mini>─</div>
+        <div class="wb maxi"  data-maxi>□</div>
+      </div>
+      <div class="win-title"><span>${escH(title)}</span></div>
+    </div>
+    <div class="win-body">${html}</div>`;
+  wlayer.appendChild(el);
+  wins.set(id,el);
+  wireWindow(el,id);
+  if(!isMob()) makeDraggable(el);
+}
+
+/* ═══════════════════════════════════════
+   MODIFICA 1 — ICON DRAG & DROP
+   ─────────────────────────────────────
+   Logica:
+   · mousedown/touchstart su un'icona avvia il drag dopo 150ms
+     di hold (distingue tap da drag)
+   · durante il move: posizione diretta via left/top (no transform)
+   · al drop: collision check con bounding box di tutte le altre icone
+     con margine ICON_GAP.
+     – Se libero → la posizione è confermata, aggiornando il registro.
+     – Se collide → snap-back fluido alla posizione precedente.
+   · I confini del canvas sono rispettati in modo rigido.
+═══════════════════════════════════════ */
+(function initIconDrag(){
+  const canvas=$('icon-canvas');
+  const ICON_W=118, ICON_H=96, ICON_GAP=10;
+  /* tolleranza click vs drag in pixel */
+  const DRAG_THRESHOLD=6;
+
+  /* Registro posizioni correnti {id → {x,y}} */
+  const positions=new Map();
+
+  function getAllBounds(exclude){
+    const icons=canvas.querySelectorAll('.desk-icon');
+    const result=[];
+    icons.forEach(ic=>{
+      if(ic===exclude) return;
+      result.push({
+        x:ic.offsetLeft, y:ic.offsetTop,
+        w:ic.offsetWidth||ICON_W,
+        h:ic.offsetHeight||ICON_H
+      });
+    });
+    return result;
+  }
+
+  function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh,gap){
+    return ax<bx+bw+gap && ax+aw+gap>bx &&
+           ay<by+bh+gap && ay+ah+gap>by;
+  }
+
+  function collides(x,y,icon){
+    const w=icon.offsetWidth||ICON_W;
+    const h=icon.offsetHeight||ICON_H;
+    const others=getAllBounds(icon);
+    return others.some(b=>rectsOverlap(x,y,w,h,b.x,b.y,b.w,b.h,ICON_GAP));
+  }
+
+  function clampToCanvas(x,y,icon){
+    const cw=canvas.offsetWidth, ch=canvas.offsetHeight;
+    const w=icon.offsetWidth||ICON_W, h=icon.offsetHeight||ICON_H;
+    return {
+      x: Math.max(0, Math.min(x, cw-w)),
+      y: Math.max(0, Math.min(y, ch-h))
+    };
+  }
+
+  function attachIconDrag(icon){
+    let isDragging=false;
+    let holdTimer=null;
+    let startClientX=0, startClientY=0;
+    let startIconX=0,   startIconY=0;
+    let lastX=0, lastY=0;
+
+    function getClient(e){
+      return e.touches
+        ? {cx:e.touches[0].clientX, cy:e.touches[0].clientY}
+        : {cx:e.clientX,            cy:e.clientY};
+    }
+
+    function onPointerDown(e){
+      /* solo pulsante sinistro o touch */
+      if(e.button!==undefined && e.button!==0) return;
+      /* non iniziare il drag se si clicca su elementi interni */
+      const {cx,cy}=getClient(e);
+      startClientX=cx; startClientY=cy;
+      startIconX=icon.offsetLeft;
+      startIconY=icon.offsetTop;
+
+      /* Hold timer: avvia il drag solo dopo 150ms di pressione tenuta */
+      holdTimer=setTimeout(()=>startDrag(e),150);
+      /* Se si muove oltre la soglia prima del timer → forza drag subito */
+      document.addEventListener('mousemove', onEarlyMove, {passive:true});
+      document.addEventListener('touchmove', onEarlyMove, {passive:true});
+      document.addEventListener('mouseup',  onPointerUpEarly, {once:true});
+      document.addEventListener('touchend', onPointerUpEarly, {once:true});
+    }
+
+    function onEarlyMove(e){
+      const {cx,cy}=getClient(e);
+      const dx=cx-startClientX, dy=cy-startClientY;
+      if(Math.sqrt(dx*dx+dy*dy)>DRAG_THRESHOLD){
+        clearTimeout(holdTimer);
+        removeEarlyListeners();
+        startDrag(e);
+      }
+    }
+    function onPointerUpEarly(){
+      clearTimeout(holdTimer);
+      removeEarlyListeners();
+    }
+    function removeEarlyListeners(){
+      document.removeEventListener('mousemove',onEarlyMove);
+      document.removeEventListener('touchmove',onEarlyMove);
+    }
+
+    function startDrag(e){
+      isDragging=true;
+      lastX=startIconX; lastY=startIconY;
+      icon.classList.add('icon-dragging');
+      icon.style.zIndex=800;
+      document.body.style.userSelect='none';
+      /* rimuovi transition durante il drag per fluidità massima */
+      icon.style.transition='border-color .1s,background .1s,box-shadow .1s,opacity .1s';
+
+      if(!isTouch()) curEl.classList.add('dragging-icon');
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('touchmove', onMoveTouch, {passive:false});
+      document.addEventListener('mouseup',   onDrop, {once:true});
+      document.addEventListener('touchend',  onDrop, {once:true});
+    }
+
+    function onMove(e){
+      if(!isDragging) return;
+      const {cx,cy}=getClient(e);
+      const dx=cx-startClientX, dy=cy-startClientY;
+      const raw=clampToCanvas(startIconX+dx, startIconY+dy, icon);
+      icon.style.left=raw.x+'px';
+      icon.style.top =raw.y+'px';
+    }
+    function onMoveTouch(e){ e.preventDefault(); onMove(e); }
+
+    function onDrop(e){
+      if(!isDragging) return;
+      isDragging=false;
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('touchmove',onMoveTouch);
+      if(!isTouch()) curEl.classList.remove('dragging-icon');
+      document.body.style.userSelect='';
+
+      const dropX=icon.offsetLeft, dropY=icon.offsetTop;
+      icon.classList.remove('icon-dragging');
+      icon.style.zIndex='';
+
+      if(collides(dropX,dropY,icon)){
+        /* COLLISIONE — prova posizioni libere vicine prima di tornare indietro */
+        const free=findNearestFree(dropX,dropY,icon);
+        if(free){
+          /* snap alla posizione libera trovata */
+          icon.classList.add('snapping');
+          icon.style.left=free.x+'px';
+          icon.style.top =free.y+'px';
+          lastX=free.x; lastY=free.y;
+          setTimeout(()=>icon.classList.remove('snapping'),280);
+          toast('↳ snapped to nearest free slot');
+        } else {
+          /* nessuna posizione libera trovata → torna alla precedente */
+          icon.classList.add('snapping');
+          icon.style.left=lastX+'px';
+          icon.style.top =lastY+'px';
+          setTimeout(()=>icon.classList.remove('snapping'),280);
+          toast('↳ position occupied — reverted');
+        }
+      } else {
+        /* posizione libera → confermata */
+        lastX=dropX; lastY=dropY;
+        toast('');/* nessun toast; silenzioso */
+      }
+
+      /* ripristina la transition normale */
+      icon.style.transition='';
+    }
+
+    /* Cerca posizione libera più vicina in spirale crescente */
+    function findNearestFree(dropX,dropY,icon){
+      const steps=[14,28,42,60,80,110,150];
+      const angles=16;
+      for(const r of steps){
+        for(let a=0;a<angles;a++){
+          const angle=(a/angles)*Math.PI*2;
+          const tx=dropX+Math.cos(angle)*r;
+          const ty=dropY+Math.sin(angle)*r;
+          const c=clampToCanvas(tx,ty,icon);
+          if(!collides(c.x,c.y,icon)) return c;
+        }
+      }
+      return null;
+    }
+
+    icon.addEventListener('mousedown',  onPointerDown);
+    icon.addEventListener('touchstart', onPointerDown, {passive:true});
+  }
+
+  /* Attacca il drag a tutte le icone presenti.
+     Viene chiamato dopo placeIconsRandomly → animateDesktopIcons. */
+  window._initIconDragAll=function(){
+    if(isMob()) return;
+    canvas.querySelectorAll('.desk-icon').forEach(ic=>attachIconDrag(ic));
+  };
+})();
+
+/* ═══════════════════════════════════════
+   ICON CLICK / DOUBLE-CLICK INTERACTIONS
+   (coesiste con il drag — la soglia di movimento
+   e il hold timer garantiscono che un singolo tap
+   senza spostamento apra la finestra normalmente)
+═══════════════════════════════════════ */
+let tapLast=null, tapTimer=null;
+
+document.querySelectorAll('.desk-icon').forEach(icon=>{
+  const id=icon.dataset.proj;
+
+  if(isTouch()){
+    /* MOBILE / TOUCH: tap singolo = apri */
+    let touchMoved=false;
+    icon.addEventListener('touchstart',()=>{ touchMoved=false; },{passive:true});
+    icon.addEventListener('touchmove', ()=>{ touchMoved=true;  },{passive:true});
+    icon.addEventListener('touchend',  ()=>{
+      if(!touchMoved){ selectIcon(icon); openWin(id); }
+    });
+  } else {
+    /* DESKTOP: 1° click = seleziona, 2° click entro 500ms = apri */
+    icon.addEventListener('click', e=>{
+      /* Se è avvenuto un drag significativo, ignora il click */
+      if(icon.classList.contains('icon-dragging')) return;
+      if(tapLast===id){
+        clearTimeout(tapTimer); tapLast=null; openWin(id);
+      } else {
+        selectIcon(icon); tapLast=id;
+        tapTimer=setTimeout(()=>tapLast=null,500);
+        toast(`${id} selected — double-click to open`);
+      }
+    });
+  }
+});
+
+function selectIcon(icon){
+  document.querySelectorAll('.desk-icon').forEach(f=>f.classList.remove('sel'));
+  icon.classList.add('sel');
+}
+
+/* ═══════════════════════════════════════
+   LEFT PANEL INTERACTIONS
+═══════════════════════════════════════ */
+document.querySelectorAll('.lp-file').forEach(row=>{
+  const id=row.dataset.open;
+  row.addEventListener('click',()=>{
+    document.querySelectorAll('.lp-file').forEach(r=>r.classList.remove('sel'));
+    row.classList.add('sel');
+    openWin(id);
+  });
+});
+
+document.querySelectorAll('.lp-cmd').forEach(btn=>{
+  btn.addEventListener('click',()=>{ const cmd=btn.dataset.cmd; if(cmd) runCmd(cmd); });
+});
+
+/* ═══════════════════════════════════════
+   TERMINAL
+═══════════════════════════════════════ */
+const termInput=$('term-input'), termBar=$('termbar');
+termBar.addEventListener('click',()=>termInput.focus());
+termInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ const cmd=termInput.value.trim().toLowerCase(); termInput.value=''; runCmd(cmd); }
+});
+document.addEventListener('keydown',e=>{
+  const interactive=e.target.closest('input, textarea, select, button, [contenteditable="true"]');
+  if(e.target!==termInput&&e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!isTouch()&&!interactive) termInput.focus();
+  if(e.key==='Escape'){ termInput.value=''; termInput.blur(); }
+});
+
+const CMDS={
+  help:()=>cmdWin('help','// help',`<div class="cres">
+    <span class="a">COMMANDS</span><br>
+    <span class="d">────────────────────────────</span><br>
+    <span class="f">projects</span>  list all projects<br>
+    <span class="f">about</span>     open about file<br>
+    <span class="f">skills</span>    show skills config<br>
+    <span class="f">contact</span>   contact info<br>
+    <span class="f">clear</span>     close all windows<br>
+    <span class="f">ls</span>        list filesystem<br>
+    <span class="f">whoami</span>    user information<br>
+    <span class="f">hello</span>     greet the system<br>
+    <span class="d">────────────────────────────</span><br>
+    <span class="d">${isTouch()||isMob()?'tap any file icon to open it':'double-click any file to open it'}</span><br>
+  </div>`),
+  projects:()=>cmdWin('proj','// projects/',`<div class="cres">
+    <span class="a">$ ls -la /projects/</span><br>
+    <span class="d">--------------------------------------</span><br>
+    <span class="f">mea_maxima_culpa.ths      </span><span class="d">thesis / accessory research</span><br>
+    <span class="f">inclusive_design_ohbo.obho</span><span class="d">inclusive product system</span><br>
+    <span class="f">figliuolo_di_dio.act      </span><span class="d">horror accessories</span><br>
+    <span class="f">enkay_x_christofle.cut    </span><span class="d">object design sketches</span><br>
+    <span class="f">home_bag.bag              </span><span class="d">bag concept</span><br>
+    <span class="f">mr_gulliver.out           </span><span class="d">streetwear identity</span><br>
+    <span class="f">propaganda.pst            </span><span class="d">poster system</span><br>
+    <span class="f">bad_business.bb           </span><span class="d">fashion collection</span><br>
+    <span class="f">quantum.qtm               </span><span class="d">footwear concept</span><br>
+    <span class="f">x_studies.x               </span><span class="d">logo studies</span><br>
+    <span class="d">--------------------------------------</span><br>
+    <span class="d">10 project folders, image archive imported</span><br>
+  </div>`),
+  about:  ()=>openWin('about'),
+  skills: ()=>openWin('skills'),
+  contact:()=>openWin('contact'),
+  ls:     ()=>CMDS.projects(),
+  clear:  ()=>{ wins.forEach((el,id)=>closeWin(el,id)); toast('all windows closed'); },
+  cls:    ()=>CMDS.clear(),
+  whoami: ()=>cmdWin('whoami','// whoami',`<div class="cres">
+    <span class="a">ludovico.morando</span><br>
+    uid=42(designer) gid=1(creative)<br>
+    groups: identity, editorial, motion<br>
+    shell: /bin/figma<br>
+    home: /milan/italy<br>
+    focus: <span class="f">fashion accessories / footwear</span><br>
+    practice: <span class="f">research, show direction, art direction</span><br>
+    status: <span class="a">available for collaborations</span><br>
+  </div>`),
+  hello:()=>{
+    toast('HELLO loaded.');
+    cmdWin('hello','// greeting',`<div class="cres">
+<pre class="ascii-prev" style="font-size:clamp(11px,2vw,16px);line-height:1.05;color:var(--accent);margin:0 0 16px;overflow-x:auto;letter-spacing:0">
+H   H  EEEEE  L      L       OOO
+H   H  E      L      L      O   O
+HHHHH  EEEE   L      L      O   O
+H   H  E      L      L      O   O
+H   H  EEEEE  LLLLL  LLLLL   OOO
+</pre>
+      <span class="d">Welcome to Ludovico Morando's portfolio system.</span><br>
+      <span class="d">Open the desktop files or type commands in the terminal.</span><br>
+    </div>`);
+  },
+  'sudo rm -rf /':()=>{ toast('nice try.'); setTimeout(()=>toast('...this is MY system.'),2200); }
+};
+
+function runCmd(cmd){
+  if(!cmd) return;
+  const fn=CMDS[cmd];
+  if(fn){ fn(); }
+  else {
+    glitch(bootHdr);
+    cmdWin('err-'+Date.now(),'// error',`<div class="cres">
+      <span class="r">command not found: ${escH(cmd)}</span><br>
+      <span class="d">type "help" for available commands</span><br>
+    </div>`);
+  }
+}
+
+/* ═══════════════════════════════════════
+   RESIZE
+═══════════════════════════════════════ */
+let wasMob=isMob();
+window.addEventListener('resize',()=>{
+  const nowMob=isMob();
+  if(wasMob!==nowMob){
+    wins.forEach((el,id)=>{el.remove();wins.delete(id);});
+    wasMob=nowMob;
+    mobHint.style.display=nowMob?'block':'none';
+    if(!nowMob) placeIconsRandomly();
+  }
+});
+
+/* ═══════════════════════════════════════
+   Override placeIconsRandomly per inizializzare
+   il drag dopo il posizionamento.
+   Attendiamo che animateDesktopIcons sia completa
+   (l'ultima icona appare dopo 480 + 14*70 = 1460ms)
+   poi attiviamo il drag engine.
+═══════════════════════════════════════ */
+const _origPlaceIcons=placeIconsRandomly;
+/* ridefiniamo la funzione locale */
+window.placeIconsRandomly=function placeIconsRandomly(){
+  if(isMob()){ animateDesktopIcons(); return; }
+  const canvas=$('icon-canvas');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const cw=canvas.offsetWidth, ch=canvas.offsetHeight;
+    if(cw<10||ch<10){ animateDesktopIcons(); setTimeout(window._initIconDragAll,1600); return; }
+    const icons=Array.from(canvas.querySelectorAll('.desk-icon'));
+    const projectIcons=icons.filter(icon=>!icon.classList.contains('trash-icon'));
+    const trash=icons.find(icon=>icon.classList.contains('trash-icon'));
+    const IW=118,IH=128,PAD_X=24,PAD_Y=22,GAP=16;
+    const slots=[
+      [.06,.08],[.30,.16],[.16,.38],
+      [.48,.06],[.38,.34],[.64,.20],
+      [.55,.55],[.80,.12],[.74,.42],
+      [.28,.63],[.10,.62]
+    ];
+    const placed=[];
+    function clamp(v,min,max){ return Math.max(min,Math.min(v,max)); }
+    function overlaps(x,y,w,h){
+      return placed.some(p=>x<p.x+p.w+GAP && x+w+GAP>p.x && y<p.y+p.h+GAP && y+h+GAP>p.y);
+    }
+    function setIcon(icon,x,y){
+      const w=icon.offsetWidth||IW, h=icon.offsetHeight||IH;
+      icon.style.left=Math.round(x)+'px';
+      icon.style.top=Math.round(y)+'px';
+      placed.push({x,y,w,h});
+    }
+    projectIcons.forEach((icon,i)=>{
+      const w=icon.offsetWidth||IW, h=icon.offsetHeight||IH;
+      const slot=slots[i%slots.length];
+      let x=clamp(slot[0]*cw, PAD_X, Math.max(PAD_X,cw-w-PAD_X));
+      let y=clamp(slot[1]*ch, PAD_Y, Math.max(PAD_Y,ch-h-PAD_Y));
+      let tries=0;
+      while(overlaps(x,y,w,h) && tries<80){
+        const step=tries+1;
+        x=clamp(PAD_X+((i*97+step*53)%(Math.max(1,cw-w-PAD_X*2))),PAD_X,Math.max(PAD_X,cw-w-PAD_X));
+        y=clamp(PAD_Y+((i*61+step*37)%(Math.max(1,ch-h-PAD_Y*2))),PAD_Y,Math.max(PAD_Y,ch-h-PAD_Y));
+        tries++;
+      }
+      setIcon(icon,x,y);
+    });
+    if(trash){
+      const w=trash.offsetWidth||IW, h=trash.offsetHeight||IH;
+      trash.style.left=Math.round(Math.max(PAD_X,cw-w-30))+'px';
+      trash.style.top=Math.round(Math.max(PAD_Y,ch-h-24))+'px';
+    }
+    animateDesktopIcons();
+    /* Attiva drag dopo che tutte le icone sono apparse */
+    setTimeout(window._initIconDragAll, 480+(icons.length*70)+200);
+  }));
+};
+
+/* iOS safe area / svh fallback */
+function setVh(){ document.documentElement.style.setProperty('--svh',window.innerHeight*.01+'px'); }
+setVh(); window.addEventListener('resize',setVh);
+</script>
+
+
+</body></html>
